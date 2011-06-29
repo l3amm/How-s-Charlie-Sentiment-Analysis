@@ -15,6 +15,7 @@ require 'date'
   end
 }
 
+
 def get_content(html_string)
   return Sanitize.clean(Distillery.distill(html_string))
 end
@@ -37,7 +38,7 @@ end
 def init_indextank
   api_url = "http://:0gV8oFvfEuktVu@defgo.api.indextank.com"
   api = IndexTank::Client.new api_url
-  @index = api.indexes "howscharlie_all"
+  @index = api.indexes "howscharlie_final"
 end
 
 def time_rand from = Time.utc(2010,"jan",1,20,15,1), to = Time.now
@@ -71,6 +72,15 @@ def superficial_date(day, month_name, year)
   return t.to_f
 end
 
+def universal_date(day, month, year)
+  t = Time.new(year.to_i, month.to_i, day.to_i)
+  return t.to_f
+end
+
+def write_to_indextank(url, content, date_string, sentiment)
+  puts @index.document(url).add({:text => content, :date => date_string, :sentiment => sentiment, :url => url}, :variables => {0 => date_string, 1 => sentiment})
+end 
+
 def parse_80legs_file(file)
   content = File.read(file)
   content_blocks = []
@@ -84,40 +94,107 @@ def parse_80legs_file(file)
 
 
   content_blocks.each_with_index do |html_string, i|
-    # TO DO: GET DATE
-
+    
     #Get URL
     url = html_string.match(/^.*?</).to_s.chop
 
     date_string = nil
     
-    another_date = nil
-
-    if url =~ /perezhilton\.com/
-      html_string.scan(/Posted:.*?\<\/span\>(.*?)\<a/m)
-      if !($1.nil?) 
-        date_string = perez_date($1)
-      end
-      #puts date_string
-    elsif (url =~ /thesuperficial\.com/) && !(url =~ /\/(tag|page)\//)
-      html_string.scan(/class\=\"date\-text\"\>.*?(\w+)\s+(\d+).*?(\d+)/)
-      if !($1.nil?)
-        date_string = superficial_date($2, $1, $3)
-      end
-    end
-
     # Get sanitized content
     content = get_content(html_string) if html_string != nil
 
     # Get sentiment of content
     sentiment = analyze_sentiment(content)
-    if (!url.empty?) && (!date_string.nil?)
+
+    #parse perezhilton.com
+    if url =~ /perezhilton\.com/
       puts url
-      puts sentiment
-      puts date_string
+      html_string.scan(/Posted:.*?\<\/span\>(.*?)\<a/m)
+      if !($1.nil?) 
+        date_string = perez_date($1)
+        write_to_indextank(url, content, date_string, sentiment)
+      end
+    #parse thesuperficial.com date
+    elsif (url =~ /thesuperficial\.com/) && !(url =~ /\/(tag|page)\//) && !(url =~/replytocom/) && !(url =~ /crap\-we\-missed/) && !(url =~ /jpg$/)
+      html_string.scan(/class\=\"date\-text\"\>.*?(\w+)\s+(\d+).*?(\d+)/)
+      if !($1.nil?)
+        date_string = superficial_date($2, $1, $3)
+        write_to_indextank(url, content, date_string, sentiment)
+      end
+    #parse wwtdd.com
+    elsif (url=~ /wwtdd\.com/)  && !(url =~ /\/(tag|page)\//)
+      puts url
+      html_string.scan(/class\=\"date\"\>.*?(\d+)\.(\d+)\.(\d+)/)
+      if !($1.nil?)
+        puts $1 + " " + $2 + " " + $3
+        date_string = universal_date($2, $1, $3)
+        puts date_string
+        write_to_indextank(url, content, date_string, sentiment)
+      end
       
-      #puts content
-      puts @index.document(url).add({:text => content, :date => date_string, :sentiment => sentiment, :url => url}, :variables => {0 => date_string, 1 => sentiment})
+    elsif (url =~/abcnews.*?\?id/)
+      puts url
+      html_string.scan(/class\=\"date\"\>.*?(\w+).*?(\d+)\,.*?(\d+)/)
+      month = $1
+      if (mon = Date::MONTHNAMES.index(month)) && !(mon == 0)
+        
+      elsif (mon = Date::ABBR_MONTHNAMES.index(month))
+        
+      end
+      if !mon.nil? && !(mon == 0) && ($2.to_i < 40) && ($3.to_i > 1990) && ($3.to_i < 2020) #hack to avoid a stupid error
+        puts $2
+        date_string = universal_date($2, mon, $3)
+        write_to_indextank(url, content, date_string, sentiment)
+      end 
+          
+    elsif (url =~/eonline.*?/) && !(url =~ /index.*html$/) && !(url =~ /\/photos\//) && (url =~ /\.html$/) && !(url =~ /videos/) && !(url =~ /\/celebs\//)
+      puts url
+      html_string.scan(/class\=\"entry\_meta\"\>.*?\w+.*?(\w+).*?(\d+)\,.*?(\d+)/)
+      if !$1.nil?
+        puts $1 + " " + $2 + " "  + $3
+      end
+      month = $1
+      if (mon = Date::MONTHNAMES.index(month)) && !(mon == 0)        
+      elsif (mon = Date::ABBR_MONTHNAMES.index(month))  
+      end
+      
+      if !mon.nil? && !(mon == 0)
+        date_string = universal_date($2, mon, $3)
+        puts write_to_indextank(url, content, date_string, sentiment)
+      end 
+    elsif (url =~/foxnews/) && (url =~ /\d+\/\d+\/\d+\//)
+      puts url
+      html_string.scan(/Published.*?(\w+).*?(\d+)\,.*?(\d+)/)
+      puts $1
+      if !$1.nil?
+        puts $1 + " " + $2 + " "  + $3
+      end
+      month = $1
+      if (mon = Date::MONTHNAMES.index(month)) && !(mon == 0)        
+      elsif (mon = Date::ABBR_MONTHNAMES.index(month))  
+      end
+      
+      if !mon.nil? && !(mon == 0)
+        date_string = universal_date($2, mon, $3)
+        puts write_to_indextank(url, content, date_string, sentiment)
+      end 
+    elsif (url =~/news\.yahoo/) && (url =~ /\/\d+\//) && !(url =~ /\/headcontent\//) && !(url =~ /\_\d+$/)
+      puts url
+      html_string.scan(/class\=\"timedate\"\>.*?nbsp\;(\w+).*?(\d+)/)
+      #year = 2011
+      year = 2011
+      if !$1.nil?
+        puts $1 + " " + $2 
+      end
+      month = $1
+      if (mon = Date::MONTHNAMES.index(month)) && !(mon == 0)        
+      elsif (mon = Date::ABBR_MONTHNAMES.index(month))  
+      end
+      
+      if !mon.nil? && !(mon == 0)        
+        date_string = universal_date($2, mon, year)
+        #puts write_to_indextank(url, content, date_string, sentiment)
+      end
     end
   end
 end
@@ -127,9 +204,9 @@ end
 @corpus.merge!(load_senti_file("sentislang.txt"))
 
 init_indextank
-Dir.glob('./perez_extended/*txt') {|file| 
+#directory you want to scan
+dir = ARGV[0]
+Dir.glob(dir + "*.txt") { |file|
   parse_80legs_file(file)
 }
-
-# Read content
 

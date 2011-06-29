@@ -1,0 +1,21 @@
+about us:
+
+team haystack: scott and thaisan are co-founders of yaystack hiring (http://haystackhiring.com), a hiring analytics platform that automatically finds qualified candidates for open job positions.
+
+scott woody: scott is a grad school dropout from stanford university. he religiously follows every celebrity diet and enjoys playing with his dog winky.
+
+thaisan tonthat: thaisan also dropped out of stanford university to pursue his dream: stalking winona rider while developing the latest machine learning techniques for improving the hiring process. 
+
+about the app:
+
+how's charlie was inspired by the idea that we could understand a celebrity's life-trajectory by using sentiment analysis of gossip websites. after all, a star is nothing without his fans. how's charlie allows users to quickly and easily find all the information about their favorite celebrities while observing their path through life's obstacles. 
+
+how's charlie was written using ruby on rails and deployed on the heroku platform. web-crawling across various gossip websites is handled by 80legs (http://80legs.com). we used several crawls to gather information from different gossip sites. for each crawl we restricted our search to outgoing links with the same domain and by restricting each crawl to a single gossip site we were able to use regular expressions to avoid analyzing information-less pages as well as redundant versions of the same page. crawls took on average 5 hours to complete with a maximum depth of 30 pages. 
+
+information from 80legs was downloaded, parsed and subjected to sentiment analysis to determine its emotional content. once analyzed, we uploaded the text of the document, the sentiment score, and the url to indextank (http://www.indextank.com), an indexed, cloud-based document database. searches on howscharlie use indextank to find all instances of the search term and return the document, its sentiment value and the date the document was published. a snippet of the matching text is provided by index tank and used to summarize celebrity stories and the url provides easy access to the desired media. we then plot the sentiment score of found documents as a function of time to illustrate the trajectory of the star. 
+
+logical extensions to 80legs would be to write an 80app that prepares the information content of the webpage and leverages already crawled data to avoid redundant searches (currently we have custom ruby code that accomplishes this task.) additionally, an automated heroku worker that downloads new documents would be awesome.
+
+as for indextank, we could definitely use faceting to auto-group close-in-time stories (currently handled by ruby.)
+
+github repository: http://
